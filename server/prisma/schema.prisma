@@ -1,0 +1,122 @@
+// Video Challenger Platform — data model
+// SQLite for zero-config local/dev runs. Swap the datasource to Postgres
+// (see docs/ARCHITECTURE.md) for a real deployment — the schema is portable.
+//
+// NOTE: SQLite has no native enum type, so the "enum-like" columns below
+// (role, status, payoutModel, ...) are plain Strings constrained by the app
+// layer (see src/types.ts + zod schemas in the routes). Switching to Postgres
+// later lets you promote these back to real Prisma enums if you want to.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  displayName     String
+  avatarUrl       String?
+  role            String   @default("VIEWER") // VIEWER | CREATOR | ADMIN — see src/types.ts
+  bio             String?
+  stripeAccountId String? // Stripe Connect account, for receiving payouts
+  createdAt       DateTime @default(now())
+
+  challenges  Challenge[]  @relation("ChallengeCreator")
+  submissions Submission[]
+  votes       Vote[]
+  views       View[]
+  payouts     Payout[]
+}
+
+model Challenge {
+  id                 String   @id @default(cuid())
+  title              String
+  description        String
+  category           String? // e.g. "Dance", "Comedy", "Talent", "Cooking"
+  coverImageUrl      String?
+  prizePoolCents     Int      @default(0)
+  currency           String   @default("usd")
+  payoutModel        String   @default("VIEWS") // VIEWS | VOTES | HYBRID
+  status             String   @default("OPEN") // DRAFT | OPEN | VOTING | CLOSED | PAID
+  submissionDeadline DateTime
+  votingDeadline     DateTime
+  minViewsForPayout  Int      @default(0) // guard against a single-view "winner"
+  createdById        String
+  createdBy          User     @relation("ChallengeCreator", fields: [createdById], references: [id])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  submissions Submission[]
+  payouts     Payout[]
+}
+
+model Submission {
+  id           String   @id @default(cuid())
+  challengeId  String
+  challenge    Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  caption      String?
+  videoUrl     String // served from /uploads or an external CDN URL
+  thumbnailUrl String?
+  durationSec  Int?
+  status       String   @default("APPROVED") // PENDING | APPROVED | REJECTED — auto-approved for MVP
+  viewCount    Int      @default(0)
+  voteCount    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  votes  Vote[]
+  views  View[]
+  payout Payout?
+
+  @@index([challengeId, status])
+}
+
+model Vote {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  // One vote per logged-in user per submission. Anyone in the world can vote —
+  // they just need an account, which is how ballot-stuffing is bounded in the MVP.
+  @@unique([submissionId, userId])
+}
+
+model View {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  viewerKey    String // userId if logged in, else an anonymous cookie-issued id
+  userId       String?
+  user         User?      @relation(fields: [userId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@index([submissionId, viewerKey, createdAt])
+}
+
+model Payout {
+  id               String    @id @default(cuid())
+  challengeId      String
+  challenge        Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  submissionId     String    @unique
+  submission       Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+  viewShare        Float // fraction of total challenge views this submission earned
+  voteShare        Float // fraction of total challenge votes this submission earned
+  amountCents      Int
+  currency         String    @default("usd")
+  status           String    @default("PENDING") // PENDING | SIMULATED | PROCESSING | PAID | FAILED
+  stripeTransferId String?
+  computedAt       DateTime  @default(now())
+  paidAt           DateTime?
+}

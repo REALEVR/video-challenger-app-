@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(63 63 70);
+  border-radius: 9999px;
+}
+
+.snap-feed {
+  scroll-snap-type: y mandatory;
+}
+.snap-feed > * {
+  scroll-snap-align: start;
+}

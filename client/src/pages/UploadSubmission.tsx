@@ -1,15 +1,30 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
+import { useToast } from "../context/ToastContext";
+import { captureVideoThumbnail } from "../lib/thumbnail";
 
 export function UploadSubmission() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [file, setFile] = useState<File | null>(null);
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [capturingThumbnail, setCapturingThumbnail] = useState(false);
   const [caption, setCaption] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  const handleFile = async (f: File | null) => {
+    setFile(f);
+    setThumbnail(null);
+    if (!f) return;
+    setCapturingThumbnail(true);
+    const dataUrl = await captureVideoThumbnail(f);
+    setThumbnail(dataUrl);
+    setCapturingThumbnail(false);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,10 +40,12 @@ export function UploadSubmission() {
       form.append("challengeId", id!);
       form.append("caption", caption);
       form.append("video", file);
+      if (thumbnail) form.append("thumbnailDataUrl", thumbnail);
       await api.post("/api/submissions", form, {
         headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: (e) => setProgress(e.total ? Math.round((e.loaded / e.total) * 100) : 0),
       });
+      showToast("Entry submitted!", "success");
       navigate(`/challenges/${id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -48,9 +65,25 @@ export function UploadSubmission() {
           type="file"
           accept="video/mp4,video/quicktime,video/webm,video/x-matroska"
           required
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
           className="block w-full text-sm text-zinc-300 file:mr-4 file:rounded-full file:border-0 file:bg-fuchsia-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-fuchsia-500"
         />
+
+        {(capturingThumbnail || thumbnail) && (
+          <div className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+            {capturingThumbnail ? (
+              <div className="grid h-16 w-28 shrink-0 place-items-center rounded bg-zinc-800 text-xs text-zinc-500">
+                Capturing…
+              </div>
+            ) : (
+              thumbnail && <img src={thumbnail} alt="Thumbnail preview" className="h-16 w-28 shrink-0 rounded object-cover" />
+            )}
+            <p className="text-xs text-zinc-400">
+              Auto-captured thumbnail from your video — this is what shows before it plays.
+            </p>
+          </div>
+        )}
+
         <textarea
           rows={3}
           placeholder="Caption (optional)"

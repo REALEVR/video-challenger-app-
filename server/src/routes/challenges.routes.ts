@@ -6,18 +6,58 @@ import { computeChallengePayouts, disburseChallengePayouts } from "../lib/payout
 
 export const challengesRouter = Router();
 
+const listQuerySchema = z.object({
+  status: z.string().optional(),
+  category: z.string().optional(),
+  q: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(12),
+});
+
+/**
+ * Filtered, searched, paginated challenge listing.
+ *
+ * The `q` search is done in application code rather than a SQL `contains`
+ * because SQLite's default collation is case-sensitive and Prisma's
+ * `mode: "insensitive"` option only applies to Postgres/MongoDB — matching
+ * this way keeps search behavior correct (and identical) regardless of
+ * which database is behind it. Fine at MVP scale; move to Postgres full-text
+ * search (or at least DB-level filtering) before this list gets large.
+ */
 challengesRouter.get("/", async (req, res, next) => {
   try {
-    const status = typeof req.query.status === "string" ? req.query.status : undefined;
-    const challenges = await prisma.challenge.findMany({
-      where: status ? { status: status as any } : undefined,
+    const { status, category, q, page, pageSize } = listQuerySchema.parse(req.query);
+
+    const all = await prisma.challenge.findMany({
+      where: {
+        ...(status ? { status } : {}),
+        ...(category ? { category } : {}),
+      },
       include: {
         createdBy: { select: { id: true, displayName: true } },
         _count: { select: { submissions: true } },
       },
       orderBy: { createdAt: "desc" },
     });
-    res.json(challenges);
+
+    const categories = Array.from(new Set(all.map((c) => c.category).filter((c): c is string => Boolean(c)))).sort();
+
+    const filtered = q
+      ? all.filter((c) => {
+          const needle = q.toLowerCase();
+          return (
+            c.title.toLowerCase().includes(needle) ||
+            c.description.toLowerCase().includes(needle) ||
+            (c.category ?? "").toLowerCase().includes(needle)
+          );
+        })
+      : all;
+
+    const total = filtered.length;
+    const start = (page - 1) * pageSize;
+    const items = filtered.slice(start, start + pageSize);
+
+    res.json({ items, total, page, pageSize, categories });
   } catch (err) {
     next(err);
   }
@@ -31,7 +71,10 @@ challengesRouter.get("/:id", async (req, res, next) => {
         createdBy: { select: { id: true, displayName: true, avatarUrl: true } },
         submissions: {
           where: { status: "APPROVED" },
-          include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
+          include: {
+            user: { select: { id: true, displayName: true, avatarUrl: true } },
+            _count: { select: { comments: true } },
+          },
           orderBy: [{ voteCount: "desc" }, { viewCount: "desc" }],
         },
       },

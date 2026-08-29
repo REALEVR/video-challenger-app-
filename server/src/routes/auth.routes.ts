@@ -3,11 +3,19 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { hashPassword, verifyPassword, signToken, AUTH_COOKIE_NAME } from "../lib/auth";
 import { requireAuth } from "../middleware/auth.middleware";
+import { authLimiter } from "../lib/rateLimit";
+import { env } from "../lib/env";
 import type { Role } from "../types";
 
 export const authRouter = Router();
 
 const COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const cookieOptions = {
+  httpOnly: true as const,
+  sameSite: "lax" as const,
+  secure: env.isProduction,
+  maxAge: COOKIE_MAX_AGE_MS,
+};
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -15,7 +23,7 @@ const registerSchema = z.object({
   displayName: z.string().min(2).max(40),
 });
 
-authRouter.post("/register", async (req, res, next) => {
+authRouter.post("/register", authLimiter, async (req, res, next) => {
   try {
     const { email, password, displayName } = registerSchema.parse(req.body);
 
@@ -29,7 +37,7 @@ authRouter.post("/register", async (req, res, next) => {
     });
 
     const token = signToken({ sub: user.id, role: user.role as Role });
-    res.cookie(AUTH_COOKIE_NAME, token, { httpOnly: true, sameSite: "lax", maxAge: COOKIE_MAX_AGE_MS });
+    res.cookie(AUTH_COOKIE_NAME, token, cookieOptions);
     res.status(201).json({
       token,
       user: { id: user.id, email: user.email, displayName: user.displayName, role: user.role },
@@ -44,7 +52,7 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-authRouter.post("/login", async (req, res, next) => {
+authRouter.post("/login", authLimiter, async (req, res, next) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
@@ -52,7 +60,7 @@ authRouter.post("/login", async (req, res, next) => {
       return res.status(401).json({ error: "Invalid email or password." });
     }
     const token = signToken({ sub: user.id, role: user.role as Role });
-    res.cookie(AUTH_COOKIE_NAME, token, { httpOnly: true, sameSite: "lax", maxAge: COOKIE_MAX_AGE_MS });
+    res.cookie(AUTH_COOKIE_NAME, token, cookieOptions);
     res.json({
       token,
       user: { id: user.id, email: user.email, displayName: user.displayName, role: user.role },

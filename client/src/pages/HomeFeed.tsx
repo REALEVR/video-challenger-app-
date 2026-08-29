@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { VideoCard } from "../components/VideoCard";
-import type { Challenge, Submission } from "../types";
+import { Spinner } from "../components/Spinner";
+import type { Challenge, ChallengeListResponse, Submission } from "../types";
 
 /**
  * The global, TikTok-style feed: every approved submission across every
@@ -17,8 +18,8 @@ export function HomeFeed() {
   useEffect(() => {
     (async () => {
       try {
-        const { data: challenges } = await api.get<Challenge[]>("/api/challenges");
-        const active = challenges.filter((c) => c.status === "OPEN" || c.status === "VOTING");
+        const { data } = await api.get<ChallengeListResponse>("/api/challenges", { params: { pageSize: 50 } });
+        const active = data.items.filter((c: Challenge) => c.status === "OPEN" || c.status === "VOTING");
         const detailed = await Promise.all(
           active.slice(0, 8).map((c) => api.get<Challenge>(`/api/challenges/${c.id}`).then((r) => r.data))
         );
@@ -32,7 +33,7 @@ export function HomeFeed() {
     })();
   }, []);
 
-  if (loading) return <div className="p-8 text-center text-zinc-400">Loading the feed…</div>;
+  if (loading) return <Spinner label="Loading the feed…" />;
 
   if (submissions.length === 0) {
     return (

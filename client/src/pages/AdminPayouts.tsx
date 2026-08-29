@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { Spinner } from "../components/Spinner";
 import { formatMoney, formatCompactNumber } from "../lib/format";
 import type { Challenge, Payout } from "../types";
 
@@ -16,10 +18,10 @@ const STATUS_COLOR: Record<string, string> = {
 export function AdminPayouts() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   const load = async () => {
     const [{ data: c }, { data: p }] = await Promise.all([
@@ -34,20 +36,19 @@ export function AdminPayouts() {
     load();
   }, [id]);
 
-  if (!challenge) return <p className="text-zinc-400">Loading…</p>;
+  if (!challenge) return <Spinner label="Loading payouts…" />;
 
   const isOwner = user?.id === challenge.createdById || user?.role === "ADMIN";
   const totalPaid = payouts.reduce((sum, p) => sum + p.amountCents, 0);
 
   const disburse = async () => {
     setBusy(true);
-    setMessage(null);
     try {
       await api.post(`/api/challenges/${challenge.id}/disburse-payouts`);
-      setMessage("Payouts disbursed (or simulated, if Stripe isn't connected).");
+      showToast("Payouts disbursed (or simulated, if Stripe isn't connected).", "success");
       await load();
     } catch (err) {
-      setMessage((err as Error).message);
+      showToast((err as Error).message, "error");
     } finally {
       setBusy(false);
     }
@@ -80,7 +81,6 @@ export function AdminPayouts() {
               {busy ? "Disbursing…" : "Disburse all pending payouts"}
             </button>
           )}
-          {message && <p className="mt-2 text-sm text-amber-400">{message}</p>}
 
           <div className="mt-4 overflow-x-auto rounded-2xl border border-zinc-800">
             <table className="w-full text-left text-sm">

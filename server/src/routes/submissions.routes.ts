@@ -2,18 +2,20 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth.middleware";
-import { uploadVideo, publicUploadUrl } from "../lib/upload";
+import { uploadVideo, publicUploadUrl, saveThumbnailFromDataUrl } from "../lib/upload";
+import { uploadLimiter } from "../lib/rateLimit";
 
 export const submissionsRouter = Router();
 
 const submitSchema = z.object({
   challengeId: z.string(),
   caption: z.string().max(500).optional(),
+  thumbnailDataUrl: z.string().optional(),
 });
 
-submissionsRouter.post("/", requireAuth, uploadVideo.single("video"), async (req, res, next) => {
+submissionsRouter.post("/", requireAuth, uploadLimiter, uploadVideo.single("video"), async (req, res, next) => {
   try {
-    const { challengeId, caption } = submitSchema.parse(req.body);
+    const { challengeId, caption, thumbnailDataUrl } = submitSchema.parse(req.body);
     if (!req.file) {
       return res.status(400).json({ error: "A video file is required." });
     }
@@ -33,6 +35,7 @@ submissionsRouter.post("/", requireAuth, uploadVideo.single("video"), async (req
         userId: req.userId!,
         caption,
         videoUrl: publicUploadUrl(req.file.filename),
+        thumbnailUrl: saveThumbnailFromDataUrl(thumbnailDataUrl),
       },
     });
     res.status(201).json(submission);

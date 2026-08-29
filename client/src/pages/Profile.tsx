@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { Spinner } from "../components/Spinner";
 import { formatCompactNumber, formatMoney } from "../lib/format";
 import type { Payout, Submission, User } from "../types";
 
@@ -30,7 +31,7 @@ export function Profile() {
     }
   }, [me, id]);
 
-  if (!profile) return <p className="text-zinc-400">Loading…</p>;
+  if (!profile) return <Spinner label="Loading profile…" />;
 
   const isSelf = me?.id === id;
   const totalEarned = payouts

@@ -47,6 +47,24 @@ export interface Submission {
   createdAt: string;
   user?: { id: string; displayName: string; avatarUrl?: string | null };
   challenge?: { id: string; title: string; status: ChallengeStatus };
+  _count?: { comments: number };
+}
+
+export interface ChallengeListResponse {
+  items: Challenge[];
+  total: number;
+  page: number;
+  pageSize: number;
+  categories: string[];
+}
+
+export interface Comment {
+  id: string;
+  submissionId: string;
+  userId: string;
+  body: string;
+  createdAt: string;
+  user?: { id: string; displayName: string; avatarUrl?: string | null };
 }
 
 export interface Payout {

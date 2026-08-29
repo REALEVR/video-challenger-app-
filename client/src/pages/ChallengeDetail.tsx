@@ -2,17 +2,19 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { Spinner } from "../components/Spinner";
 import { formatCompactNumber, formatMoney, timeUntil } from "../lib/format";
 import type { Challenge } from "../types";
 
 export function ChallengeDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   const load = () => api.get<Challenge>(`/api/challenges/${id}`).then(({ data }) => setChallenge(data));
 
@@ -20,7 +22,7 @@ export function ChallengeDetail() {
     load().finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <p className="text-zinc-400">Loading…</p>;
+  if (loading) return <Spinner label="Loading challenge…" />;
   if (!challenge) return <p className="text-zinc-400">Challenge not found.</p>;
 
   const isOwner = user?.id === challenge.createdById || user?.role === "ADMIN";
@@ -30,12 +32,12 @@ export function ChallengeDetail() {
 
   const runStatusChange = async (status: string) => {
     setBusy(true);
-    setMessage(null);
     try {
       await api.patch(`/api/challenges/${challenge.id}/status`, { status });
+      showToast(status === "VOTING" ? "Submissions closed — voting is now open." : "Status updated.", "success");
       await load();
     } catch (err) {
-      setMessage((err as Error).message);
+      showToast((err as Error).message, "error");
     } finally {
       setBusy(false);
     }
@@ -43,14 +45,13 @@ export function ChallengeDetail() {
 
   const runComputePayouts = async () => {
     setBusy(true);
-    setMessage(null);
     try {
       await api.post(`/api/challenges/${challenge.id}/compute-payouts`);
-      setMessage("Payouts computed from current views/votes. Review them, then disburse.");
+      showToast("Payouts computed from current views/votes. Review them, then disburse.", "success");
       await load();
       navigate(`/challenges/${challenge.id}/payouts`);
     } catch (err) {
-      setMessage((err as Error).message);
+      showToast((err as Error).message, "error");
     } finally {
       setBusy(false);
     }
@@ -117,7 +118,6 @@ export function ChallengeDetail() {
             </Link>
           )}
         </div>
-        {message && <p className="mt-3 text-sm text-amber-400">{message}</p>}
       </div>
 
       <div>

@@ -53,6 +53,28 @@ Open http://localhost:5173. Log in with a seeded account
 (`maya@example.com` / `kofi@example.com` / `viewer@example.com`, password
 `password123` for all three) or register a new one.
 
+### Run with Docker instead
+
+```bash
+docker compose up --build
+```
+
+This builds the server (Node, runs `prisma migrate deploy` on boot) and
+the client (built as static assets, served by nginx, which proxies
+`/api` and `/uploads` through to the server — mirroring the dev-time Vite
+proxy). Open http://localhost:8080. The SQLite database and uploaded
+videos persist in a named Docker volume (`server-data`) across restarts.
+Set `JWT_SECRET`, `STRIPE_SECRET_KEY`, etc. via a `.env` file next to
+`docker-compose.yml` or as shell env vars — see the `environment:` block
+in that file for what it reads.
+
+> Note: the Dockerfiles and compose setup were validated by running their
+> underlying npm/prisma commands directly (they're the same build/start
+> steps this README uses locally, and CI runs them too — see
+> `.github/workflows/ci.yml`), but `docker build`/`docker compose up`
+> themselves could not be executed in the environment this was built in.
+> Sanity-check the images build cleanly before relying on them.
+
 ### Try the full loop
 
 1. Log in, click **Start a Challenge**, set a small prize pool (e.g. $10)
@@ -79,6 +101,16 @@ server/   Express API, Prisma schema, payout engine, Stripe integration
 client/   React app — feed, challenges, upload, voting, payouts
 docs/     Architecture, payout math, and legal/trust-safety notes
 ```
+
+## Known dev-only dependency advisory
+
+`npm audit` on the client flags a moderate esbuild advisory
+(GHSA-67mh-4wv8-2f99) bundled inside Vite's dev server (fixed only in Vite
+8, a breaking major bump not taken here yet). It only affects `npm run
+dev` — a page you visit while the dev server is running could make
+requests to it — not the production build output. Vite's dev server binds
+to localhost by default, which already limits exposure; avoid running
+`vite --host` on an untrusted network until this is upgraded.
 
 ## Before you take this to production
 

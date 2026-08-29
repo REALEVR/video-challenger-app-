@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth.middleware";
+import { voteLimiter } from "../lib/rateLimit";
 
 export const votesRouter = Router();
 
 // Anyone in the world can vote — the only requirement is a free account, so a
 // vote can be tied to exactly one person (@@unique([submissionId, userId]) in
 // the schema is what actually stops one visitor from voting twice).
-votesRouter.post("/:submissionId", requireAuth, async (req, res, next) => {
+votesRouter.post("/:submissionId", voteLimiter, requireAuth, async (req, res, next) => {
   try {
     const submission = await prisma.submission.findUnique({ where: { id: req.params.submissionId } });
     if (!submission) return res.status(404).json({ error: "Submission not found." });

@@ -10,6 +10,7 @@ function required(name: string, fallback?: string): string {
 }
 
 export const env = {
+  isProduction: process.env.NODE_ENV === "production",
   port: Number(process.env.PORT ?? 4000),
   jwtSecret: required("JWT_SECRET", "dev-only-change-me"),
   clientOrigin: required("CLIENT_ORIGIN", "http://localhost:5173"),

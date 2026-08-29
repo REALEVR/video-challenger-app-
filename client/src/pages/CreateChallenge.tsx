@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import { useToast } from "../context/ToastContext";
 import type { PayoutModel } from "../types";
 
 function toLocalInputValue(date: Date): string {
@@ -10,6 +11,7 @@ function toLocalInputValue(date: Date): string {
 
 export function CreateChallenge() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -36,6 +38,7 @@ export function CreateChallenge() {
         submissionDeadline: new Date(submissionDeadline).toISOString(),
         votingDeadline: new Date(votingDeadline).toISOString(),
       });
+      showToast("Challenge created!", "success");
       navigate(`/challenges/${data.id}`);
     } catch (err) {
       setError((err as Error).message);

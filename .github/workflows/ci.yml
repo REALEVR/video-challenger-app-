@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Typecheck & build (server + client)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          # Root-level lockfile — this is an npm workspaces monorepo
+          # (server + client), so dependencies are installed once from here.
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies (all workspaces)
+        run: npm ci
+
+      - name: Prisma generate
+        run: npm run db:generate -w server
+
+      - name: Typecheck server
+        run: npm run lint -w server
+
+      - name: Typecheck client
+        run: npm run lint -w client
+
+      - name: Verify migrations apply cleanly
+        working-directory: server
+        env:
+          DATABASE_URL: file:./ci.db
+        run: npx prisma migrate deploy
+
+      - name: Build server
+        run: npm run build -w server
+
+      - name: Build client
+        run: npm run build -w client

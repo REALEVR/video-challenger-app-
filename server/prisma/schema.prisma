@@ -32,6 +32,7 @@ model User {
   votes       Vote[]
   views       View[]
   payouts     Payout[]
+  comments    Comment[]
 }
 
 model Challenge {
@@ -71,9 +72,10 @@ model Submission {
   voteCount    Int      @default(0)
   createdAt    DateTime @default(now())
 
-  votes  Vote[]
-  views  View[]
-  payout Payout?
+  votes    Vote[]
+  views    View[]
+  comments Comment[]
+  payout   Payout?
 
   @@index([challengeId, status])
 }
@@ -89,6 +91,18 @@ model Vote {
   // One vote per logged-in user per submission. Anyone in the world can vote —
   // they just need an account, which is how ballot-stuffing is bounded in the MVP.
   @@unique([submissionId, userId])
+}
+
+model Comment {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  body         String
+  createdAt    DateTime   @default(now())
+
+  @@index([submissionId, createdAt])
 }
 
 model View {

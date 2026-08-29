@@ -1,6 +1,8 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { prisma } from "../lib/prisma";
+import { viewLimiter } from "../lib/rateLimit";
+import { env } from "../lib/env";
 
 export const viewsRouter = Router();
 
@@ -13,7 +15,7 @@ const DEDUPE_WINDOW_MS = 12 * 60 * 60 * 1000; // 12h: watching again later still
  * farm view-based payouts. Anonymous visitors are identified by a random,
  * httpOnly cookie issued on first visit (no personal data collected).
  */
-viewsRouter.post("/:submissionId", async (req, res, next) => {
+viewsRouter.post("/:submissionId", viewLimiter, async (req, res, next) => {
   try {
     const submission = await prisma.submission.findUnique({ where: { id: req.params.submissionId } });
     if (!submission) return res.status(404).json({ error: "Submission not found." });
@@ -24,6 +26,7 @@ viewsRouter.post("/:submissionId", async (req, res, next) => {
       res.cookie(ANON_COOKIE, anonId, {
         httpOnly: true,
         sameSite: "lax",
+        secure: env.isProduction,
         maxAge: 365 * 24 * 60 * 60 * 1000,
       });
     }

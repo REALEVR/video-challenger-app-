@@ -6,8 +6,9 @@ build/
 server/.env
 server/uploads/*
 !server/uploads/.gitkeep
-server/prisma/dev.db
-server/prisma/dev.db-journal
+server/prisma/*.db
+server/prisma/*.db-journal
+*.tsbuildinfo
 *.log
 .DS_Store
 .vite/

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { formatCompactNumber } from "../lib/format";
+import { CommentsModal } from "./CommentsModal";
 import type { Submission } from "../types";
 
 interface Props {
@@ -19,11 +21,14 @@ interface Props {
  */
 export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [viewCount, setViewCount] = useState(submission.viewCount);
   const [voteCount, setVoteCount] = useState(submission.voteCount);
   const [voted, setVoted] = useState(false);
   const [voteBusy, setVoteBusy] = useState(false);
+  const [commentCount, setCommentCount] = useState(submission._count?.comments ?? 0);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const hasCountedView = useRef(false);
 
   useEffect(() => {
@@ -77,8 +82,8 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
         onVoteChange?.(submission.id, 1);
       }
     } catch (err) {
-      // most likely voting-window-closed or duplicate; surface briefly
-      console.warn((err as Error).message);
+      // most likely voting-window-closed or duplicate
+      showToast((err as Error).message, "error");
     } finally {
       setVoteBusy(false);
     }
@@ -89,6 +94,7 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
       <video
         ref={videoRef}
         src={submission.videoUrl}
+        poster={submission.thumbnailUrl ?? undefined}
         className="h-full w-full object-cover"
         loop
         muted
@@ -118,18 +124,37 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
           <p className="mt-1 text-xs text-zinc-400">{formatCompactNumber(viewCount)} views</p>
         </div>
 
-        <button
-          onClick={handleVote}
-          disabled={!user || voteBusy}
-          title={user ? "Vote for this entry" : "Log in to vote"}
-          className={`pointer-events-auto flex flex-col items-center gap-1 rounded-full px-3 py-2 transition ${
-            voted ? "bg-fuchsia-600 text-white" : "bg-white/10 text-white hover:bg-white/20"
-          } disabled:opacity-50`}
-        >
-          <span className="text-xl">{voted ? "❤️" : "🤍"}</span>
-          <span className="text-xs font-semibold">{formatCompactNumber(voteCount)}</span>
-        </button>
+        <div className="pointer-events-auto flex flex-col items-center gap-3">
+          <button
+            onClick={handleVote}
+            disabled={!user || voteBusy}
+            title={user ? "Vote for this entry" : "Log in to vote"}
+            className={`flex flex-col items-center gap-1 rounded-full px-3 py-2 transition ${
+              voted ? "bg-fuchsia-600 text-white" : "bg-white/10 text-white hover:bg-white/20"
+            } disabled:opacity-50`}
+          >
+            <span className="text-xl">{voted ? "❤️" : "🤍"}</span>
+            <span className="text-xs font-semibold">{formatCompactNumber(voteCount)}</span>
+          </button>
+
+          <button
+            onClick={() => setCommentsOpen(true)}
+            title="Comments"
+            className="flex flex-col items-center gap-1 rounded-full bg-white/10 px-3 py-2 text-white transition hover:bg-white/20"
+          >
+            <span className="text-xl">💬</span>
+            <span className="text-xs font-semibold">{formatCompactNumber(commentCount)}</span>
+          </button>
+        </div>
       </div>
+
+      {commentsOpen && (
+        <CommentsModal
+          submissionId={submission.id}
+          onClose={() => setCommentsOpen(false)}
+          onCountChange={(delta) => setCommentCount((c) => c + delta)}
+        />
+      )}
     </div>
   );
 }

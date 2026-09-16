@@ -6,7 +6,7 @@ Clashreel is a two-service app:
 
 ```
 client/   React + Vite + TypeScript + Tailwind    (port 5173 in dev)
-server/   Express + TypeScript + Prisma + SQLite   (port 4000)
+server/   Express + TypeScript + Prisma + Postgres (port 4000)
 ```
 
 In dev, Vite proxies `/api/*` and `/uploads/*` to the Express server (see
@@ -15,13 +15,11 @@ production you can either keep them behind one reverse proxy (nginx, Caddy,
 a platform's built-in router) the same way, or point `VITE_API_BASE_URL` at
 a separately-hosted API.
 
-## Why SQLite for the data store
+## Why Postgres for the data store
 
 The schema (`server/prisma/schema.prisma`) is plain Prisma models with no
-SQLite-specific tricks beyond avoiding native enums (SQLite has none —
-"enum" columns are `String`, constrained by zod validation in the routes
-and the union types in `server/src/types.ts` / `client/src/types.ts`).
-That means moving to Postgres is a one-line change:
+engine-specific tricks. It was authored against SQLite for zero-config local
+runs, then moved to Postgres — and the move cost exactly one line, as designed:
 
 ```prisma
 datasource db {
@@ -30,10 +28,22 @@ datasource db {
 }
 ```
 
-...plus `prisma migrate dev` to regenerate migrations against the new
-engine. Do this before real production traffic — SQLite is great for a
-demo or a single-instance deployment, but you'll want Postgres once you
-have concurrent writers or need to run more than one API instance.
+No model, field or index changed. The existing SQLite migrations could not
+come along — their DDL is SQLite dialect — so they were replaced with a single
+Postgres baseline (`20260913000000_init_postgres`): 7 tables, 6 indexes, 12
+foreign keys.
+
+One artefact of the SQLite origin remains on purpose. SQLite has no native
+enum, so the "enum" columns are `String`, constrained by zod validation in the
+routes and the union types in `server/src/types.ts` / `client/src/types.ts`.
+Postgres *does* have real enums, so these could be promoted — but that needs a
+data migration for existing rows, which stops being free the moment a
+deployment has data. Left as strings deliberately; revisit when the schema is
+otherwise settled.
+
+Hosted deployments use a Neon free-tier project. See `docs/DEPLOYMENT.md` —
+including why the API does not run on Vercel serverless (200 MB video uploads
+need a real disk).
 
 ## Data model
 

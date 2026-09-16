@@ -28,8 +28,8 @@ global, open voting — as one small, working app.
 
 ## Stack
 
-- **Server**: Node.js, Express, TypeScript, Prisma, SQLite (swap-in
-  Postgres for production — one line, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)),
+- **Server**: Node.js, Express, TypeScript, Prisma, Postgres
+  (Neon free tier for hosted trials — see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)),
   JWT auth, Multer for uploads, Stripe Connect for payouts.
 - **Client**: React, Vite, TypeScript, Tailwind CSS, React Router.
 
@@ -43,7 +43,8 @@ npm install                 # installs both workspaces (server + client)
 cp server/.env.example server/.env
 cp client/.env.example client/.env
 
-npm run db:migrate          # creates server/prisma/dev.db and applies the schema
+# Needs a running Postgres. Quickest: docker compose up -d db
+npm run db:migrate          # applies the schema to $DATABASE_URL
 npm run db:seed             # seeds two creators, a viewer, and a sample challenge
 
 npm run dev                 # runs the API (:4000) and the client (:5173) together
@@ -62,8 +63,9 @@ docker compose up --build
 This builds the server (Node, runs `prisma migrate deploy` on boot) and
 the client (built as static assets, served by nginx, which proxies
 `/api` and `/uploads` through to the server — mirroring the dev-time Vite
-proxy). Open http://localhost:8080. The SQLite database and uploaded
-videos persist in a named Docker volume (`server-data`) across restarts.
+proxy). Open http://localhost:8080. Postgres runs as its own `db` service
+(the server waits on its healthcheck before migrating); the database persists
+in the `db-data` volume and uploaded videos in `server-data`, across restarts.
 Set `JWT_SECRET`, `STRIPE_SECRET_KEY`, etc. via a `.env` file next to
 `docker-compose.yml` or as shell env vars — see the `environment:` block
 in that file for what it reads.

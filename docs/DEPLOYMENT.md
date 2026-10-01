@@ -89,12 +89,16 @@ Import the repo, set **root directory to `client`**. `client/vercel.json`
 handles the rest — the rewrite is what stops a refresh on `/challenges/123`
 returning a 404 instead of the app.
 
-Set one environment variable:
+`client/vercel.json` also proxies `/api/*` and `/uploads/*` to the API, so
+the browser only ever talks to the Vercel origin. That matters: auth uses a
+`SameSite=Lax` cookie, and a `*.vercel.app` page calling a `*.up.railway.app`
+API is cross-site, so the browser would never send the cookie and every login
+would look like it silently failed. Same-origin through the proxy avoids that
+without loosening the cookie.
 
-- `VITE_API_BASE_URL` — your API's public URL, no trailing slash
-
-Vite inlines `VITE_*` at build time, so changing it needs a redeploy, not just
-a restart.
+Point the two proxy destinations at your API's host, and leave
+`VITE_API_BASE_URL` **unset** so requests stay relative. (The trial deploy
+points at `clashreel-api-production.up.railway.app`.)
 
 ## Trial-run caveats
 

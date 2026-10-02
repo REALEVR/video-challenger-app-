@@ -5,6 +5,11 @@
 FROM node:20-alpine AS build
 WORKDIR /repo
 
+# Prisma's engines link against OpenSSL, which node:*-alpine doesn't ship.
+# Without it `prisma generate` picks the wrong engine and `migrate deploy`
+# dies with "Could not parse schema engine response". Needed in both stages.
+RUN apk add --no-cache openssl
+
 COPY package.json package-lock.json ./
 COPY server/package.json server/package.json
 COPY client/package.json client/package.json
@@ -16,6 +21,7 @@ RUN npm run build -w server
 # --- Runtime image: only what's needed to run the compiled server ---
 FROM node:20-alpine AS runtime
 WORKDIR /app
+RUN apk add --no-cache openssl
 ENV NODE_ENV=production
 
 COPY --from=build /repo/node_modules ./node_modules

@@ -83,6 +83,24 @@ Deploy `server/` to Render/Railway/Fly. Root directory `server`, build
 - `JWT_SECRET` — `openssl rand -base64 32`, not the placeholder
 - `CLIENT_ORIGIN` — your Vercel URL, or CORS will block the browser
 
+#### On Railway (what the trial deploy uses)
+
+Build from the **repo root** with `server/Dockerfile`; it's an npm workspaces
+monorepo, so a `server`-only root loses the lockfile. Then:
+
+- **Volume** at `/data`, with `UPLOAD_DIR=/data/uploads`. Without it, every
+  redeploy wipes uploaded videos. (Railway refuses a Dockerfile `VOLUME`
+  instruction, which is why the Dockerfile doesn't declare one.)
+- **Pre-deploy command**:
+  `sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts"`.
+  Dockerfile services run it without a shell, so a bare `a && b` silently
+  runs only `a`: the `sh -c` is what makes the second half happen. The seed
+  is all upserts, so re-running it on every deploy is harmless. Drop it once
+  real users exist.
+- **Start command**: `node dist/index.js`. **Healthcheck**: `/api/health`.
+- `DATABASE_URL` may point several apps at one Postgres by giving each its
+  own schema, e.g. `${{Postgres.DATABASE_URL}}?schema=clashreel`.
+
 ### 3. Client (Vercel)
 
 Import the repo, set **root directory to `client`**. `client/vercel.json`

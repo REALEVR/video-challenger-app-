@@ -23,9 +23,12 @@ COPY --from=build /repo/server/dist ./dist
 COPY --from=build /repo/server/prisma ./prisma
 COPY --from=build /repo/server/package.json ./package.json
 
-# Persisted at runtime via a volume — see docker-compose.yml.
+# Persist /data with a volume mounted by the platform: docker-compose.yml
+# mounts one, and on Railway attach a volume at /data. There is deliberately
+# no VOLUME instruction — Railway refuses to build a Dockerfile that has one,
+# and compose doesn't need it. The server creates UPLOAD_DIR on startup, so a
+# fresh empty volume is fine.
 RUN mkdir -p /data/uploads
-VOLUME ["/data"]
 
 EXPOSE 4000
 

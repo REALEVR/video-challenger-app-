@@ -1,11 +1,31 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-video_challenger}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # The server runs `prisma migrate deploy` on boot, so it must not start
+    # until Postgres is actually accepting connections — not merely running.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-video_challenger}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   server:
     build:
       context: .
       dockerfile: server/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: file:/data/dev.db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-video_challenger}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
       PORT: 4000
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
@@ -15,6 +35,7 @@ services:
       STRIPE_CONNECT_RETURN_URL: ${STRIPE_CONNECT_RETURN_URL:-http://localhost:8080/profile}
       STRIPE_CONNECT_REFRESH_URL: ${STRIPE_CONNECT_REFRESH_URL:-http://localhost:8080/profile}
     volumes:
+      # Uploaded videos only — the database lives in the db service now.
       - server-data:/data
     ports:
       - "4000:4000"
@@ -31,4 +52,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  db-data:
   server-data:

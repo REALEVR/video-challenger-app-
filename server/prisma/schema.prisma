@@ -1,18 +1,23 @@
 // Video Challenger Platform — data model
-// SQLite for zero-config local/dev runs. Swap the datasource to Postgres
-// (see docs/ARCHITECTURE.md) for a real deployment — the schema is portable.
 //
-// NOTE: SQLite has no native enum type, so the "enum-like" columns below
-// (role, status, payoutModel, ...) are plain Strings constrained by the app
-// layer (see src/types.ts + zod schemas in the routes). Switching to Postgres
-// later lets you promote these back to real Prisma enums if you want to.
+// Postgres (Neon free tier) for hosted trial deployments. The schema is
+// engine-portable: it was authored against SQLite and moved to Postgres
+// without a single field change — see docs/DEPLOYMENT.md for the migration
+// that was actually run.
+//
+// NOTE: the "enum-like" columns below (role, status, payoutModel, ...) are
+// still plain Strings constrained at the app layer (see src/types.ts + the
+// zod schemas in the routes). Postgres does support real enums, so these can
+// be promoted later — that is a deliberate follow-up, not an oversight: it
+// needs a data migration for existing rows, so it is not free once a trial
+// deployment has data in it.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

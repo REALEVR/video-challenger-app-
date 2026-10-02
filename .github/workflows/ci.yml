@@ -10,6 +10,27 @@ jobs:
   build:
     name: Typecheck & build (server + client)
     runs-on: ubuntu-latest
+
+    # The migration step below applies the schema for real, so it needs a live
+    # Postgres. Kept on the default 5432 and reached over localhost, since the
+    # step runs on the runner host rather than inside a container.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        # Without the healthcheck the step can start before Postgres accepts
+        # connections and fail on a connection refused rather than a real error.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +57,7 @@ jobs:
       - name: Verify migrations apply cleanly
         working-directory: server
         env:
-          DATABASE_URL: file:./ci.db
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci
         run: npx prisma migrate deploy
 
       - name: Build server

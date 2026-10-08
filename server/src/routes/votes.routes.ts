@@ -3,20 +3,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth.middleware";
 import { voteLimiter } from "../lib/rateLimit";
+import { isVotingOpen } from "../lib/votingWindow";
 
 export const votesRouter = Router();
-
-type VotingWindow = { status: string; votingDeadline: Date };
-
-// Single definition of "can votes change right now?", shared by casting and
-// withdrawing. Withdrawals used to skip this check, so a vote could be pulled
-// after the deadline and shift the final standings (and any payout derived
-// from them).
-function isVotingOpen(challenge: VotingWindow | null): boolean {
-  return Boolean(
-    challenge && ["OPEN", "VOTING"].includes(challenge.status) && new Date() <= challenge.votingDeadline,
-  );
-}
 
 // Anyone in the world can vote — the only requirement is a free account, so a
 // vote can be tied to exactly one person (@@unique([submissionId, userId]) in

@@ -1,5 +1,16 @@
 import { prisma } from "./prisma";
 import { stripe, transferPayout } from "./stripe";
+import { HttpError } from "./httpError";
+
+/** Payout states that mean money was (or was recorded as) sent. */
+const DISBURSED_STATUSES = ["PAID", "SIMULATED", "PROCESSING"];
+
+// What compute/disburse return to the client. Never `user: true`: that sends
+// every payee's passwordHash, email and Stripe account id to the caller.
+const PAYOUT_RESULT_INCLUDE = {
+  user: { select: { id: true, displayName: true, avatarUrl: true } },
+  submission: { select: { id: true, caption: true, viewCount: true, voteCount: true } },
+} as const;
 
 /**
  * Computes each approved submission's share of a challenge's prize pool.
@@ -23,6 +34,19 @@ export async function computeChallengePayouts(challengeId: string) {
       },
     },
   });
+
+  // Payouts can be (re)computed while voting runs or after it closed, but
+  // never once any have been disbursed: recomputing used to reset PAID rows
+  // back to PENDING, and the next disburse would pay those creators again.
+  if (!["VOTING", "CLOSED"].includes(challenge.status)) {
+    throw new HttpError(400, "Close submissions and start voting before computing payouts.");
+  }
+  const alreadyDisbursed = await prisma.payout.count({
+    where: { challengeId, status: { in: DISBURSED_STATUSES } },
+  });
+  if (alreadyDisbursed > 0) {
+    throw new HttpError(409, "Payouts for this challenge have already been disbursed and can't be recomputed.");
+  }
 
   const eligible = challenge.submissions.filter((s) => s.viewCount >= challenge.minViewsForPayout);
 
@@ -95,17 +119,30 @@ export async function computeChallengePayouts(challengeId: string) {
     data: { status: "CLOSED" },
   });
 
-  return prisma.payout.findMany({ where: { challengeId }, include: { user: true, submission: true } });
+  return prisma.payout.findMany({ where: { challengeId }, include: PAYOUT_RESULT_INCLUDE, orderBy: { amountCents: "desc" } });
 }
 
 /** Disburses (or simulates disbursing) every PENDING payout for a challenge. */
 export async function disburseChallengePayouts(challengeId: string) {
+  const challenge = await prisma.challenge.findUniqueOrThrow({ where: { id: challengeId } });
+  if (challenge.status !== "CLOSED") {
+    throw new HttpError(400, "Compute payouts (which ends voting) before disbursing them.");
+  }
+
   const payouts = await prisma.payout.findMany({
     where: { challengeId, status: "PENDING" },
     include: { user: true },
   });
 
   for (const payout of payouts) {
+    // Claim the row first. A double-click or two admins disbursing at once
+    // would otherwise both see it PENDING and both send the transfer.
+    const claim = await prisma.payout.updateMany({
+      where: { id: payout.id, status: "PENDING" },
+      data: { status: "PROCESSING" },
+    });
+    if (claim.count === 0) continue;
+
     if (payout.amountCents <= 0) {
       await prisma.payout.update({
         where: { id: payout.id },
@@ -128,6 +165,7 @@ export async function disburseChallengePayouts(challengeId: string) {
         amountCents: payout.amountCents,
         currency: payout.currency,
         transferGroup: `challenge_${challengeId}`,
+        idempotencyKey: `payout_${payout.id}`,
       });
       await prisma.payout.update({
         where: { id: payout.id },
@@ -138,6 +176,7 @@ export async function disburseChallengePayouts(challengeId: string) {
         },
       });
     } catch (err) {
+      console.error(`Stripe transfer failed for payout ${payout.id}:`, err);
       await prisma.payout.update({
         where: { id: payout.id },
         data: { status: "FAILED" },
@@ -146,11 +185,11 @@ export async function disburseChallengePayouts(challengeId: string) {
   }
 
   const remaining = await prisma.payout.count({
-    where: { challengeId, status: { in: ["PENDING", "FAILED"] } },
+    where: { challengeId, status: { in: ["PENDING", "FAILED", "PROCESSING"] } },
   });
   if (remaining === 0) {
     await prisma.challenge.update({ where: { id: challengeId }, data: { status: "PAID" } });
   }
 
-  return prisma.payout.findMany({ where: { challengeId }, include: { user: true, submission: true } });
+  return prisma.payout.findMany({ where: { challengeId }, include: PAYOUT_RESULT_INCLUDE, orderBy: { amountCents: "desc" } });
 }

@@ -22,6 +22,7 @@ export function AdminPayouts() {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     const [{ data: c }, { data: p }] = await Promise.all([
@@ -33,9 +34,10 @@ export function AdminPayouts() {
   };
 
   useEffect(() => {
-    load();
+    load().catch((err) => setLoadError((err as Error).message));
   }, [id]);
 
+  if (loadError) return <p className="py-10 text-center text-zinc-400">{loadError}</p>;
   if (!challenge) return <Spinner label="Loading payouts…" />;
 
   const isOwner = user?.id === challenge.createdById || user?.role === "ADMIN";

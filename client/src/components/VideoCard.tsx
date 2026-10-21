@@ -29,6 +29,9 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
   const [voteBusy, setVoteBusy] = useState(false);
   const [commentCount, setCommentCount] = useState(submission._count?.comments ?? 0);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  // The seeded demo entries (and any upload lost from the API's disk) point at
+  // files that 404 — show that plainly instead of an endless black card.
+  const [videoFailed, setVideoFailed] = useState(false);
   const hasCountedView = useRef(false);
 
   useEffect(() => {
@@ -90,7 +93,7 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
   };
 
   return (
-    <div className="relative mx-auto flex h-[calc(100vh-4rem)] max-h-[850px] w-full max-w-sm items-center justify-center overflow-hidden rounded-2xl bg-black shadow-2xl">
+    <div className="relative mx-auto flex feed-card-height max-h-[850px] w-full max-w-sm items-center justify-center overflow-hidden rounded-2xl bg-black shadow-2xl">
       <video
         ref={videoRef}
         src={submission.videoUrl}
@@ -100,7 +103,19 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
         muted
         playsInline
         controls={false}
+        preload="metadata"
+        onError={() => setVideoFailed(true)}
       />
+
+      {videoFailed && (
+        <div className="absolute inset-0 grid place-items-center p-6 text-center">
+          <div>
+            <p className="text-3xl">🎞️</p>
+            <p className="mt-2 text-sm font-semibold text-zinc-200">This video isn't available</p>
+            <p className="mt-1 text-xs text-zinc-500">The file may have been removed from the server.</p>
+          </div>
+        </div>
+      )}
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
 
@@ -128,7 +143,9 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
           <button
             onClick={handleVote}
             disabled={!user || voteBusy}
-            title={user ? "Vote for this entry" : "Log in to vote"}
+            title={user ? (voted ? "Remove your vote" : "Vote for this entry") : "Log in to vote"}
+            aria-label={user ? (voted ? "Remove your vote" : "Vote for this entry") : "Log in to vote"}
+            aria-pressed={voted}
             className={`flex flex-col items-center gap-1 rounded-full px-3 py-2 transition ${
               voted ? "bg-fuchsia-600 text-white" : "bg-white/10 text-white hover:bg-white/20"
             } disabled:opacity-50`}
@@ -140,6 +157,7 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
           <button
             onClick={() => setCommentsOpen(true)}
             title="Comments"
+            aria-label="Open comments"
             className="flex flex-col items-center gap-1 rounded-full bg-white/10 px-3 py-2 text-white transition hover:bg-white/20"
           >
             <span className="text-xl">💬</span>

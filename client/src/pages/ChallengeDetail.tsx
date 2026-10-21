@@ -19,11 +19,13 @@ export function ChallengeDetail() {
   const load = () => api.get<Challenge>(`/api/challenges/${id}`).then(({ data }) => setChallenge(data));
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    load()
+      .catch(() => setChallenge(null))
+      .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return <Spinner label="Loading challenge…" />;
-  if (!challenge) return <p className="text-zinc-400">Challenge not found.</p>;
+  if (!challenge) return <p className="py-10 text-center text-zinc-400">Challenge not found.</p>;
 
   const isOwner = user?.id === challenge.createdById || user?.role === "ADMIN";
   const submissions = [...(challenge.submissions ?? [])].sort(

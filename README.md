@@ -66,7 +66,7 @@ the client (built as static assets, served by nginx, which proxies
 proxy). Open http://localhost:8080. Postgres runs as its own `db` service
 (the server waits on its healthcheck before migrating); the database persists
 in the `db-data` volume and uploaded videos in `server-data`, across restarts.
-Set `JWT_SECRET`, `STRIPE_SECRET_KEY`, etc. via a `.env` file next to
+Set `JWT_SECRET` (required — `openssl rand -base64 32`), `STRIPE_SECRET_KEY`, etc. via a `.env` file next to
 `docker-compose.yml` or as shell env vars — see the `environment:` block
 in that file for what it reads.
 

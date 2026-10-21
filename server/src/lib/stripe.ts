@@ -43,6 +43,8 @@ export async function transferPayout(opts: {
   amountCents: number;
   currency: string;
   transferGroup: string;
+  /** Same key for the same payout, so a retried disburse can never pay twice. */
+  idempotencyKey: string;
 }): Promise<{ id: string } | { simulated: true }> {
   if (!stripe) {
     return { simulated: true };
@@ -52,6 +54,6 @@ export async function transferPayout(opts: {
     currency: opts.currency,
     destination: opts.destinationAccountId,
     transfer_group: opts.transferGroup,
-  });
+  }, { idempotencyKey: opts.idempotencyKey });
   return { id: transfer.id };
 }

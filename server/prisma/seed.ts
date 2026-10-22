@@ -1,9 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { ensureSampleMedia, SAMPLE_VIDEO_URLS } from "../src/lib/sampleMedia";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  ensureSampleMedia(); // the seeded entries below play these bundled videos
   const passwordHash = await bcrypt.hash("password123", 10);
 
   const creator1 = await prisma.user.upsert({
@@ -62,13 +64,14 @@ async function main() {
 
   const sub1 = await prisma.submission.upsert({
     where: { id: "seed-sub-1" },
-    update: {},
+    // Re-seeding repairs rows that still point at the old missing placeholder.
+    update: { videoUrl: SAMPLE_VIDEO_URLS[0] },
     create: {
       id: "seed-sub-1",
       challengeId: challenge.id,
       userId: creator1.id,
       caption: "My grandmother taught me this move 💃",
-      videoUrl: "/uploads/sample-placeholder.mp4",
+      videoUrl: SAMPLE_VIDEO_URLS[0],
       viewCount: 15234,
       voteCount: 812,
     },
@@ -76,13 +79,14 @@ async function main() {
 
   const sub2 = await prisma.submission.upsert({
     where: { id: "seed-sub-2" },
-    update: {},
+    // Re-seeding repairs rows that still point at the old missing placeholder.
+    update: { videoUrl: SAMPLE_VIDEO_URLS[1] },
     create: {
       id: "seed-sub-2",
       challengeId: challenge.id,
       userId: creator2.id,
       caption: "When the beat drops at a wedding 😂",
-      videoUrl: "/uploads/sample-placeholder.mp4",
+      videoUrl: SAMPLE_VIDEO_URLS[1],
       viewCount: 9820,
       voteCount: 1204,
     },

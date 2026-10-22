@@ -15,6 +15,7 @@ import { payoutsRouter } from "./routes/payouts.routes";
 import { commentsRouter } from "./routes/comments.routes";
 import { stripeEnabled } from "./lib/stripe";
 import { SERVABLE_UPLOAD_EXTENSIONS } from "./lib/upload";
+import { ensureSampleMedia } from "./lib/sampleMedia";
 import path from "path";
 
 const app = express();
@@ -38,6 +39,8 @@ app.use(cors({ origin: env.clientOrigin, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: "100kb" }));
 app.use(attachUser);
+
+ensureSampleMedia();
 
 // Only ever serve media types from /uploads. Files written before upload
 // extensions were derived from the MIME type could have any extension

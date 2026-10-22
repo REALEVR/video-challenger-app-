@@ -14,6 +14,7 @@ import type { Challenge, ChallengeListResponse, Submission } from "../types";
 export function HomeFeed() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -27,6 +28,8 @@ export function HomeFeed() {
           .flatMap((c) => (c.submissions ?? []).map((s) => ({ ...s, challenge: { id: c.id, title: c.title, status: c.status } })))
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setSubmissions(all);
+      } catch (err) {
+        setError((err as Error).message);
       } finally {
         setLoading(false);
       }
@@ -34,6 +37,21 @@ export function HomeFeed() {
   }, []);
 
   if (loading) return <Spinner label="Loading the feed…" />;
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-md py-20 text-center">
+        <h1 className="text-2xl font-bold text-white">Couldn't load the feed</h1>
+        <p className="mt-2 text-zinc-400">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-6 inline-block rounded-full bg-fuchsia-600 px-6 py-3 font-semibold text-white hover:bg-fuchsia-500"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   if (submissions.length === 0) {
     return (

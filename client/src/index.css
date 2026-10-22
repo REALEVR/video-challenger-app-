@@ -22,3 +22,11 @@ body,
 .snap-feed > * {
   scroll-snap-align: start;
 }
+
+/* Feed cards fill the viewport under the nav. 100vh on mobile browsers
+   includes the area behind the collapsing URL bar, which pushed the vote and
+   comment buttons off-screen; dvh tracks the visible viewport instead. */
+.feed-card-height {
+  height: calc(100vh - 4rem);
+  height: calc(100dvh - 4rem);
+}

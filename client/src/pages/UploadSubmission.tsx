@@ -4,6 +4,10 @@ import { api } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { captureVideoThumbnail } from "../lib/thumbnail";
 
+// Mirrors the server's default MAX_UPLOAD_MB. Checking here saves the user
+// from uploading 300MB only to have the server reject it at the end.
+const MAX_UPLOAD_MB = 200;
+
 export function UploadSubmission() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -32,6 +36,10 @@ export function UploadSubmission() {
       setError("Choose a video file first.");
       return;
     }
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setError(`That video is ${Math.round(file.size / (1024 * 1024))}MB. The limit is ${MAX_UPLOAD_MB}MB.`);
+      return;
+    }
     setError(null);
     setBusy(true);
     setProgress(0);
@@ -58,7 +66,7 @@ export function UploadSubmission() {
     <div className="mx-auto max-w-lg">
       <h1 className="mb-2 text-2xl font-bold text-white">Submit your entry</h1>
       <p className="mb-6 text-sm text-zinc-400">
-        MP4, MOV, WebM, or MKV, up to 200MB. Once submitted, anyone in the world can watch and vote for it.
+        MP4, MOV, WebM, or MKV, up to {MAX_UPLOAD_MB}MB. Once submitted, anyone in the world can watch and vote for it.
       </p>
       <form onSubmit={submit} className="space-y-4">
         <input

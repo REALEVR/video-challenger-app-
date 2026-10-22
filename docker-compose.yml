@@ -26,7 +26,9 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-video_challenger}
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-prod}
+      # Required: the server refuses to start in production without a real
+      # secret (>= 32 chars). Generate one with: openssl rand -base64 32
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (openssl rand -base64 32) in .env or your shell}
       PORT: 4000
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
       UPLOAD_DIR: /data/uploads

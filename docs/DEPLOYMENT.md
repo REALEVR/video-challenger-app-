@@ -80,7 +80,14 @@ Deploy `server/` to Render/Railway/Fly. Root directory `server`, build
 `server/.env.example`, with:
 
 - `DATABASE_URL` — the **pooled** Neon URL
-- `JWT_SECRET` — `openssl rand -base64 32`, not the placeholder
+- `JWT_SECRET` — `openssl rand -base64 32`, not the placeholder. With
+  `NODE_ENV=production` the server now refuses to boot on a missing, short
+  (< 32 chars) or placeholder secret, because anyone who has read this repo
+  could otherwise mint an ADMIN token.
+- `TRUST_PROXY=2` when the browser reaches the API through Vercel's rewrite
+  (Vercel, then Railway's edge). With the default of 1, every visitor looks
+  like Vercel's egress IP to the rate limiters, so one busy minute locks
+  everyone out of login/voting together.
 - `CLIENT_ORIGIN` — your Vercel URL, or CORS will block the browser
 
 #### On Railway (what the trial deploy uses)

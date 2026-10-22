@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAuth, requireChallengeOwner } from "../middleware/auth.middleware";
 import { computeChallengePayouts, disburseChallengePayouts } from "../lib/payout";
+import { stripeEnabled } from "../lib/stripe";
 
 export const challengesRouter = Router();
 
@@ -117,12 +118,27 @@ const updateStatusSchema = z.object({
   status: z.enum(["DRAFT", "OPEN", "VOTING", "CLOSED", "PAID"]),
 });
 
+// Manual transitions a creator may make. CLOSED and PAID are reached only
+// through compute-payouts / disburse-payouts, and nothing moves backwards:
+// re-opening a CLOSED/PAID challenge would re-open voting on results that
+// payouts were already computed (or paid) from.
+const MANUAL_TRANSITIONS: Record<string, string[]> = {
+  DRAFT: ["OPEN"],
+  OPEN: ["VOTING"],
+};
+
 /** Manual status transitions (e.g. creator closes submissions to move to VOTING). */
 challengesRouter.patch("/:id/status", requireAuth, requireChallengeOwner, async (req, res, next) => {
   try {
     const { status } = updateStatusSchema.parse(req.body);
-    const challenge = await prisma.challenge.update({ where: { id: req.params.id }, data: { status } });
-    res.json(challenge);
+    const current = (req as any).challenge.status as string;
+    if (!(MANUAL_TRANSITIONS[current] ?? []).includes(status)) {
+      return res.status(400).json({ error: `A ${current} challenge can't be moved to ${status}.` });
+    }
+    // Conditional update so two racing requests can't both transition.
+    const { count } = await prisma.challenge.updateMany({ where: { id: req.params.id, status: current }, data: { status } });
+    if (count === 0) return res.status(409).json({ error: "The challenge changed in the meantime. Reload and try again." });
+    res.json(await prisma.challenge.findUniqueOrThrow({ where: { id: req.params.id } }));
   } catch (err) {
     next(err);
   }
@@ -138,9 +154,19 @@ challengesRouter.post("/:id/compute-payouts", requireAuth, requireChallengeOwner
   }
 });
 
-/** Disburses (or simulates, if Stripe isn't configured) every computed payout. */
+/**
+ * Disburses (or simulates, if Stripe isn't configured) every computed payout.
+ *
+ * With real Stripe, transfers come out of the PLATFORM's balance — prize pools
+ * are just a number the creator typed, nothing is escrowed. So while Stripe is
+ * live only an ADMIN may release money; otherwise any account could create a
+ * challenge with a huge pool and pay it to itself.
+ */
 challengesRouter.post("/:id/disburse-payouts", requireAuth, requireChallengeOwner, async (req, res, next) => {
   try {
+    if (stripeEnabled && req.userRole !== "ADMIN") {
+      return res.status(403).json({ error: "Real payouts must be released by a platform admin." });
+    }
     const payouts = await disburseChallengePayouts(req.params.id);
     res.json(payouts);
   } catch (err) {

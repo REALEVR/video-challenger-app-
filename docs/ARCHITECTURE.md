@@ -85,6 +85,10 @@ need a real disk).
 6. `POST /api/challenges/:id/disburse-payouts` pays out via Stripe Connect
    if configured, or marks payouts `SIMULATED` otherwise.
 
+`GET /api/challenges/:id/leaderboard?limit=10` is a public ranking of approved
+submissions, scored the same way payouts are weighted (views, votes, or the
+average of both shares). Equal scores share a rank (1, 1, 3).
+
 ## Scaling the video pipeline
 
 The MVP stores uploaded files on local disk and serves them with

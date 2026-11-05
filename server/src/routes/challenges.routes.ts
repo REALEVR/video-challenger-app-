@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireChallengeOwner } from "../middleware/auth.middleware";
 import { computeChallengePayouts, disburseChallengePayouts } from "../lib/payout";
 import { stripeEnabled } from "../lib/stripe";
+import { rankSubmissions } from "../lib/leaderboard";
 
 export const challengesRouter = Router();
 
@@ -82,6 +83,39 @@ challengesRouter.get("/:id", async (req, res, next) => {
     });
     if (!challenge) return res.status(404).json({ error: "Challenge not found." });
     res.json(challenge);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Public leaderboard: approved submissions ranked the same way payouts are
+ * weighted (see lib/leaderboard.ts). Capped at `limit` entries (default 10).
+ */
+challengesRouter.get("/:id/leaderboard", async (req, res, next) => {
+  try {
+    const { limit } = z.object({ limit: z.coerce.number().int().min(1).max(100).default(10) }).parse(req.query);
+    const challenge = await prisma.challenge.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        payoutModel: true,
+        submissions: {
+          where: { status: "APPROVED" },
+          select: {
+            id: true,
+            caption: true,
+            thumbnailUrl: true,
+            viewCount: true,
+            voteCount: true,
+            user: { select: { id: true, displayName: true, avatarUrl: true } },
+          },
+        },
+      },
+    });
+    if (!challenge) return res.status(404).json({ error: "Challenge not found." });
+    const ranked = rankSubmissions(challenge.submissions, challenge.payoutModel);
+    res.json({ payoutModel: challenge.payoutModel, total: ranked.length, items: ranked.slice(0, limit) });
   } catch (err) {
     next(err);
   }

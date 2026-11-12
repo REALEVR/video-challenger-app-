@@ -4,11 +4,14 @@ import { prisma } from "../lib/prisma";
 import { requireAuth, requireChallengeOwner } from "../middleware/auth.middleware";
 import { computeChallengePayouts, disburseChallengePayouts } from "../lib/payout";
 import { stripeEnabled } from "../lib/stripe";
+import { withPhase } from "../lib/challengePhase";
+import { CHALLENGE_STATUSES } from "../types";
 
 export const challengesRouter = Router();
 
 const listQuerySchema = z.object({
-  status: z.string().optional(),
+  // Validated so a typo (?status=open) is a 400, not a silently empty list.
+  status: z.enum(CHALLENGE_STATUSES).optional(),
   category: z.string().optional(),
   q: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -56,7 +59,9 @@ challengesRouter.get("/", async (req, res, next) => {
 
     const total = filtered.length;
     const start = (page - 1) * pageSize;
-    const items = filtered.slice(start, start + pageSize);
+    // One clock reading per request, so every item's phase is consistent.
+    const now = new Date();
+    const items = filtered.slice(start, start + pageSize).map((c) => withPhase(c, now));
 
     res.json({ items, total, page, pageSize, categories });
   } catch (err) {
@@ -81,7 +86,7 @@ challengesRouter.get("/:id", async (req, res, next) => {
       },
     });
     if (!challenge) return res.status(404).json({ error: "Challenge not found." });
-    res.json(challenge);
+    res.json(withPhase(challenge));
   } catch (err) {
     next(err);
   }

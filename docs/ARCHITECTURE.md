@@ -85,6 +85,13 @@ need a real disk).
 6. `POST /api/challenges/:id/disburse-payouts` pays out via Stripe Connect
    if configured, or marks payouts `SIMULATED` otherwise.
 
+`status` records what the creator/admin has *done*; it does not advance on
+its own when deadlines pass. Challenge responses therefore also carry a
+derived `phase` (`SUBMISSIONS_OPEN`, `VOTING_OPEN`, `AWAITING_RESULTS`, …)
+computed from status + deadlines at read time — see
+`server/src/lib/challengePhase.ts`. Clients should branch on `phase` for
+"can I submit / vote right now?" and on `status` only for creator actions.
+
 ## Scaling the video pipeline
 
 The MVP stores uploaded files on local disk and serves them with

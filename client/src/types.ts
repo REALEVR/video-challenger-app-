@@ -1,5 +1,7 @@
 export type Role = "VIEWER" | "CREATOR" | "ADMIN";
 export type ChallengeStatus = "DRAFT" | "OPEN" | "VOTING" | "CLOSED" | "PAID";
+/** Server-derived from status + deadlines; see server/src/lib/challengePhase.ts. */
+export type ChallengePhase = "DRAFT" | "SUBMISSIONS_OPEN" | "VOTING_OPEN" | "AWAITING_RESULTS" | "CLOSED" | "PAID";
 export type PayoutModel = "VIEWS" | "VOTES" | "HYBRID";
 export type SubmissionStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type PayoutStatus = "PENDING" | "SIMULATED" | "PROCESSING" | "PAID" | "FAILED";
@@ -24,6 +26,7 @@ export interface Challenge {
   currency: string;
   payoutModel: PayoutModel;
   status: ChallengeStatus;
+  phase: ChallengePhase;
   submissionDeadline: string;
   votingDeadline: string;
   minViewsForPayout: number;

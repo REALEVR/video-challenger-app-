@@ -80,12 +80,13 @@ export function ChallengeDetail() {
         <p className="mt-4 whitespace-pre-line text-zinc-300">{challenge.description}</p>
         <div className="mt-4 flex flex-wrap gap-4 text-sm text-zinc-400">
           <span>Status: <strong className="text-zinc-200">{challenge.status}</strong></span>
-          <span>Submissions {challenge.status === "OPEN" ? timeUntil(challenge.submissionDeadline) : "closed"}</span>
+          <span>Submissions {challenge.phase === "SUBMISSIONS_OPEN" ? timeUntil(challenge.submissionDeadline) : "closed"}</span>
           <span>Voting {timeUntil(challenge.votingDeadline)}</span>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          {challenge.status === "OPEN" && user && (
+          {/* phase, not status: an OPEN challenge past its deadline no longer takes entries. */}
+          {challenge.phase === "SUBMISSIONS_OPEN" && user && (
             <Link
               to={`/challenges/${challenge.id}/upload`}
               className="rounded-full bg-fuchsia-600 px-5 py-2 font-semibold text-white hover:bg-fuchsia-500"

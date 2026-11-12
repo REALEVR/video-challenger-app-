@@ -20,7 +20,8 @@ export function HomeFeed() {
     (async () => {
       try {
         const { data } = await api.get<ChallengeListResponse>("/api/challenges", { params: { pageSize: 50 } });
-        const active = data.items.filter((c: Challenge) => c.status === "OPEN" || c.status === "VOTING");
+        // phase, not status: an OPEN/VOTING challenge whose voting deadline passed is over.
+        const active = data.items.filter((c: Challenge) => c.phase === "SUBMISSIONS_OPEN" || c.phase === "VOTING_OPEN");
         const detailed = await Promise.all(
           active.slice(0, 8).map((c) => api.get<Challenge>(`/api/challenges/${c.id}`).then((r) => r.data))
         );

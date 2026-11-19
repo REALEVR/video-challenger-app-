@@ -17,3 +17,6 @@ export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
 
 export const PAYOUT_STATUSES = ["PENDING", "SIMULATED", "PROCESSING", "PAID", "FAILED"] as const;
 export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
+
+export const REPORT_REASONS = ["SPAM", "HARASSMENT", "SEXUAL_CONTENT", "VIOLENCE", "COPYRIGHT", "MINOR_SAFETY", "OTHER"] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number];

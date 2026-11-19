@@ -44,6 +44,16 @@ export const commentLimiter = rateLimit({
   message: { error: "You're commenting too fast. Please slow down." },
 });
 
+// Reports: one per (submission, user) is enforced by the DB; this bounds a
+// single account sweeping the feed and flagging everything in sight.
+export const reportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many reports this hour. Please try again later." },
+});
+
 // Uploads: bounded mostly by disk/bandwidth cost, not fraud.
 export const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,

@@ -38,6 +38,7 @@ model User {
   views       View[]
   payouts     Payout[]
   comments    Comment[]
+  reports     SubmissionReport[]
 }
 
 model Challenge {
@@ -80,6 +81,7 @@ model Submission {
   votes    Vote[]
   views    View[]
   comments Comment[]
+  reports  SubmissionReport[]
   payout   Payout?
 
   @@index([challengeId, status])
@@ -108,6 +110,23 @@ model Comment {
   createdAt    DateTime   @default(now())
 
   @@index([submissionId, createdAt])
+}
+
+// A viewer flagging a submission for moderator review. One report per user per
+// submission (the unique constraint), so the auto-hide threshold counts
+// distinct people, not repeated clicks. See src/lib/moderation.ts.
+model SubmissionReport {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reporterId   String
+  reporter     User       @relation(fields: [reporterId], references: [id])
+  reason       String // see REPORT_REASONS in src/types.ts
+  details      String?
+  createdAt    DateTime   @default(now())
+
+  @@unique([submissionId, reporterId])
+  @@index([submissionId])
 }
 
 model View {

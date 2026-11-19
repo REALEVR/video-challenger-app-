@@ -13,6 +13,7 @@ import { votesRouter } from "./routes/votes.routes";
 import { viewsRouter } from "./routes/views.routes";
 import { payoutsRouter } from "./routes/payouts.routes";
 import { commentsRouter } from "./routes/comments.routes";
+import { moderationRouter } from "./routes/moderation.routes";
 import { stripeEnabled } from "./lib/stripe";
 import { SERVABLE_UPLOAD_EXTENSIONS } from "./lib/upload";
 import { ensureSampleMedia } from "./lib/sampleMedia";
@@ -68,6 +69,7 @@ app.use("/api/votes", votesRouter);
 app.use("/api/views", viewsRouter);
 app.use("/api/payouts", payoutsRouter);
 app.use("/api/comments", commentsRouter);
+app.use("/api/moderation", moderationRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

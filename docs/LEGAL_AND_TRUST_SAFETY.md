@@ -74,3 +74,10 @@ liability (unfair/deceptive practices).
   moves.
 - A moderation status field and vote/view dedup as a foundation to build
   the above on top of — not a substitute for doing it.
+- User reporting: `POST /api/submissions/:id/report` (one report per user
+  per submission). Three distinct reports — or a single `MINOR_SAFETY`
+  report — move an `APPROVED` submission to `PENDING`, which hides it from
+  listings and payout computation until an admin resolves it via
+  `GET /api/moderation/reports` and `PATCH /api/moderation/submissions/:id`.
+  This is a triage queue, not the legally required CSAM/NCMEC reporting
+  pipeline described above.

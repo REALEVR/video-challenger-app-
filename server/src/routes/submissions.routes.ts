@@ -1,9 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireAuth } from "../middleware/auth.middleware";
+import { shouldAutoHide } from "../lib/moderation";
+import { REPORT_REASONS } from "../types";
 import { uploadVideo, publicUploadUrl, saveThumbnailFromDataUrl, discardUpload } from "../lib/upload";
-import { uploadLimiter } from "../lib/rateLimit";
+import { reportLimiter, uploadLimiter } from "../lib/rateLimit";
 
 export const submissionsRouter = Router();
 
@@ -67,6 +70,52 @@ submissionsRouter.get("/:id", async (req, res, next) => {
     if (!submission) return res.status(404).json({ error: "Submission not found." });
     res.json(submission);
   } catch (err) {
+    next(err);
+  }
+});
+
+const reportSchema = z.object({
+  reason: z.enum(REPORT_REASONS),
+  details: z.string().trim().max(1000).optional(),
+});
+
+/**
+ * Flag a submission for moderator review. Enough distinct reports (or one
+ * minor-safety report) move it from APPROVED to PENDING, which drops it from
+ * every public listing until an admin decides — see src/lib/moderation.ts.
+ *
+ * The response never says whether the submission was hidden, so a reporter
+ * can't use it to probe how close a video is to the threshold.
+ */
+submissionsRouter.post("/:id/report", reportLimiter, requireAuth, async (req, res, next) => {
+  try {
+    const { reason, details } = reportSchema.parse(req.body);
+    const submission = await prisma.submission.findUnique({ where: { id: req.params.id } });
+    if (!submission) return res.status(404).json({ error: "Submission not found." });
+    if (submission.userId === req.userId) {
+      return res.status(400).json({ error: "You can't report your own submission." });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.submissionReport.create({
+        data: { submissionId: submission.id, reporterId: req.userId!, reason, details: details || undefined },
+      });
+      const distinctReporters = await tx.submissionReport.count({ where: { submissionId: submission.id } });
+      if (shouldAutoHide({ status: submission.status, distinctReporters, latestReason: reason })) {
+        // Conditional update: if an admin changed the status since we read it,
+        // their decision wins and this matches zero rows.
+        await tx.submission.updateMany({
+          where: { id: submission.id, status: "APPROVED" },
+          data: { status: "PENDING" },
+        });
+      }
+    });
+
+    res.status(201).json({ reported: true });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return res.status(409).json({ error: "You've already reported this submission." });
+    }
     next(err);
   }
 });

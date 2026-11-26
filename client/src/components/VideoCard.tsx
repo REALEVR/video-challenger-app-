@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { formatCompactNumber } from "../lib/format";
+import { shareSubmission } from "../lib/share";
 import { CommentsModal } from "./CommentsModal";
 import type { Submission } from "../types";
 
@@ -68,6 +69,12 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
     observer.observe(el);
     return () => observer.disconnect();
   }, [submission.id]);
+
+  const handleShare = async () => {
+    const outcome = await shareSubmission(submission);
+    if (outcome === "copied") showToast("Link copied — send it to your friends to get votes.", "success");
+    if (outcome === "unavailable") showToast("Couldn't share from this browser. Copy the address bar link instead.", "error");
+  };
 
   const handleVote = async () => {
     if (!user) return;
@@ -162,6 +169,16 @@ export function VideoCard({ submission, showChallengeLink, onVoteChange }: Props
           >
             <span className="text-xl">💬</span>
             <span className="text-xs font-semibold">{formatCompactNumber(commentCount)}</span>
+          </button>
+
+          <button
+            onClick={handleShare}
+            title="Share this entry"
+            aria-label="Share this entry"
+            className="flex flex-col items-center gap-1 rounded-full bg-white/10 px-3 py-2 text-white transition hover:bg-white/20"
+          >
+            <span className="text-xl">↗️</span>
+            <span className="text-xs font-semibold">Share</span>
           </button>
         </div>
       </div>

@@ -10,6 +10,7 @@ import { Profile } from "./pages/Profile";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { AdminPayouts } from "./pages/AdminPayouts";
+import { SubmissionPage } from "./pages/SubmissionPage";
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/s/:id" element={<SubmissionPage />} />
           <Route path="/profile/:id" element={<Profile />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

@@ -62,9 +62,18 @@ submissionsRouter.get("/:id", async (req, res, next) => {
       include: {
         user: { select: { id: true, displayName: true, avatarUrl: true } },
         challenge: { select: { id: true, title: true, status: true } },
+        _count: { select: { comments: true } },
       },
     });
-    if (!submission) return res.status(404).json({ error: "Submission not found." });
+    // This endpoint backs public share links (/s/:id), so it must not become a
+    // side door to entries the challenge pages hide. A PENDING or REJECTED
+    // submission is visible only to its author and admins; everyone else gets
+    // the same 404 as a missing id, so a link doesn't reveal that it exists.
+    const canSeeUnapproved =
+      submission && (submission.userId === req.userId || req.userRole === "ADMIN");
+    if (!submission || (submission.status !== "APPROVED" && !canSeeUnapproved)) {
+      return res.status(404).json({ error: "Submission not found." });
+    }
     res.json(submission);
   } catch (err) {
     next(err);
